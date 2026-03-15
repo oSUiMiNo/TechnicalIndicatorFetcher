@@ -16,3 +16,7 @@ class PatternComputationError(TechnicalIndicatorFetcherError):
 
 class SerializationError(TechnicalIndicatorFetcherError):
     pass
+
+
+class MarketDataFetchError(TechnicalIndicatorFetcherError):
+    pass

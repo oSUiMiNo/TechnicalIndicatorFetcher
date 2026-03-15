@@ -1,11 +1,13 @@
 from .derived import build_derived_states
 from .exceptions import (
     IndicatorComputationError,
+    MarketDataFetchError,
     OHLCVValidationError,
     PatternComputationError,
     SerializationError,
 )
 from .indicators import compute_core_indicators, compute_extended_indicators, compute_indicators
+from .market_data import fetch_and_run_with_yfinance, fetch_ohlcv_with_yfinance
 from .patterns import compute_candlestick_patterns
 from .models import BatchRequest, FetcherOptions, NormalizedOHLCV, WarningEntry
 from .preprocess import normalize_ohlcv
@@ -22,6 +24,7 @@ __all__ = [
     "BatchRequest",
     "FetcherOptions",
     "IndicatorComputationError",
+    "MarketDataFetchError",
     "NormalizedOHLCV",
     "OHLCVValidationError",
     "PatternComputationError",
@@ -34,6 +37,8 @@ __all__ = [
     "compute_core_indicators",
     "compute_extended_indicators",
     "compute_indicators",
+    "fetch_and_run_with_yfinance",
+    "fetch_ohlcv_with_yfinance",
     "multi_timeframe_indicator_fetcher",
     "normalize_ohlcv",
     "serialize_to_json",
