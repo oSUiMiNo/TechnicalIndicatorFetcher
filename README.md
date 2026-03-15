@@ -13,6 +13,7 @@
 * `core` / `extended` 指標 profile
 * `major_only` / `full` ローソク足パターン profile
 * YAML / JSON / dict 出力
+* `yfinance` を使った実データ取得 API
 * `include_history`
 * `strict` mode
 * 単一銘柄の複数時間足集約
@@ -83,13 +84,22 @@ flowchart TD
 
 ## セットアップ
 
-`uv` を使う前提なら、まず依存を同期します。
+通常の実行やテストは `uv run ...` で進められます。
+`uv run` は実行前に lockfile と仮想環境の同期を自動で確認します。
+
+```bash
+uv run pytest
+uv run python sample_run.py
+```
+
+エディタや周辺ツール向けに、明示的に `.venv` をそろえたい場合だけ `uv sync` を使います。
 
 ```bash
 uv sync --group dev
 ```
 
-テスト実行はこれです。
+通常テストは人工的に作った OHLCV データを使います。
+ネットワークには出ず、実銘柄の価格データも使いません。
 
 ```bash
 uv run pytest
@@ -115,6 +125,19 @@ uv run python sample_run.py --format json
 
 ```bash
 uv run python sample_run.py --format json --indicator-profile extended --pattern-profile full
+```
+
+実データで確認したい場合は [`sample_run_yfinance.py`](/home/osuim/Dev/TechnicalIndicatorFetcher/sample_run_yfinance.py) を使います。
+このスクリプトはライブラリの正式 API を使って実データ取得から実行まで行います。
+
+```bash
+uv run python sample_run_yfinance.py --symbol AAPL --period 1y --interval 1d
+```
+
+JSON で見たい場合：
+
+```bash
+uv run python sample_run_yfinance.py --format json --indicator-profile extended --pattern-profile full
 ```
 
 ## 使い方
@@ -202,6 +225,38 @@ batch_technical_indicator_fetcher(
     requests: list[BatchRequest],
     return_dict: bool = False,
 ) -> list[str | dict]
+```
+
+### 4. `fetch_ohlcv_with_yfinance(...)`
+
+`yfinance` を使って実データの OHLCV を取得する正式 API です。
+
+```python
+fetch_ohlcv_with_yfinance(
+    symbol: str,
+    period: str = "1y",
+    interval: str = "1d",
+    auto_adjust: bool = True,
+    prepost: bool = False,
+) -> pd.DataFrame
+```
+
+### 5. `fetch_and_run_with_yfinance(...)`
+
+実データ取得から fetcher 実行までを一度に行う正式 API です。
+
+```python
+fetch_and_run_with_yfinance(
+    symbol: str,
+    timeframe: str,
+    period: str = "1y",
+    interval: str = "1d",
+    auto_adjust: bool = True,
+    prepost: bool = False,
+    as_of: str | datetime | pd.Timestamp | None = None,
+    options: FetcherOptions | None = None,
+    return_dict: bool = False,
+) -> str | dict
 ```
 
 ## `FetcherOptions` でよく使うもの
@@ -311,13 +366,26 @@ batch_technical_indicator_fetcher(
 
 `volume` が欠損している場合は、price 系の計算は継続し、volume 系だけを `null` と warning に落とします。
 
+## テストで使うデータ
+
+通常テストは、実銘柄ではなく人工的に作った OHLCV を使います。
+`AAPL` や `MSFT` という文字列は `symbol` フィールド確認用のラベルで、実データ取得には使っていません。
+
+実データでの結合確認が必要なときだけ、opt-in の結合テストを使います。
+
+```bash
+RUN_REAL_DATA_TEST=1 uv run pytest tests/test_real_data_integration.py
+```
+
 ## データ取得について
 
-このライブラリは OHLCV を外から受け取ります。
-取得責務は持ちません。
+このライブラリは、外から渡された OHLCV を計算する使い方に加えて、`yfinance` を使って実データを取得する正式 API も持っています。
 
-そのため、`yfinance` などでデータを取ってから渡す使い方を想定しています。
-ただし `yfinance` 自体はこのリポジトリの依存には含めていません。
+使い分けは次です。
+
+* 既に OHLCV がある場合：`technical_indicator_fetcher(...)`
+* `yfinance` で OHLCV だけ取りたい場合：`fetch_ohlcv_with_yfinance(...)`
+* `yfinance` で取ってすぐ計算したい場合：`fetch_and_run_with_yfinance(...)`
 
 ## どのファイルが何をするか
 
@@ -329,6 +397,7 @@ batch_technical_indicator_fetcher(
 | `technical_indicator_fetcher/indicators.py` | 指標計算 |
 | `technical_indicator_fetcher/patterns.py` | ローソク足パターン計算 |
 | `technical_indicator_fetcher/derived.py` | 生値から状態ラベル生成 |
+| `technical_indicator_fetcher/market_data.py` | `yfinance` からの実データ取得 |
 | `technical_indicator_fetcher/serializer.py` | YAML / JSON シリアライズ |
 | `technical_indicator_fetcher/models.py` | options と dataclass 定義 |
 | `tests/` | 単体テストと結合テスト |
